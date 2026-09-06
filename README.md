@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/basebin/kernels/main/.github/assets/thumbnail.png" alt="kernels" width="100%">
+  <img src="https://raw.githubusercontent.com/Coccinella-Labs/kernels/main/.github/assets/thumbnail.png" alt="kernels" width="100%">
 </p>
 
 **Metal Compute Kernels for Swift**
