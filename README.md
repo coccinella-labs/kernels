@@ -4,8 +4,9 @@
 
 **Metal Compute Kernels for Swift**
 
-Severity Package Platform Link
-N/A metal-compute-kernels Apple Silicon (macOS / iOS) —
+| Severity | Package | Platform | Link |
+|---|---|---|---|
+| N/A | metal-compute-kernels | Apple Silicon (macOS / iOS) | - |
 
 A Swift-based framework for GPU compute on Apple Silicon using Apple’s Metal API.
 
