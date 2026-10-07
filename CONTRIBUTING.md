@@ -11,8 +11,8 @@ Be respectful, inclusive, and constructive in all interactions.
 1. **Fork the repository**
 
    ```bash
-   git clone https://github.com/coccinella-labs/metal-kernels.git
-   cd metal-kernels
+   git clone https://github.com/coccinella-labs/kernels.git
+   cd kernels
    ```
 
 2. **Create a feature branch**

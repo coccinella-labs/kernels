@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Coccinella-Labs/kernels/main/.github/assets/thumbnail.png" alt="kernels" width="100%">
+  <img src="https://raw.githubusercontent.com/coccinella-labs/kernels/main/.github/assets/thumbnail.png" alt="kernels" width="100%">
 </p>
 
 **Metal Compute Kernels for Swift**
@@ -10,6 +10,8 @@ N/A metal-compute-kernels Apple Silicon (macOS / iOS) —
 A Swift-based framework for GPU compute on Apple Silicon using Apple’s Metal API.
 
 Metal Compute Kernels enables writing high-performance GPU kernels directly in Swift and provides direct CUDA-to-Metal execution model translations.
+
+The CUDA examples below are worked translations, not an automated translator. `Sources/MetalKernels/kernels.metal` ships 23 Metal kernels, and `Sources/MetalKernels/main.swift` runs them alongside the equivalent CUDA source and prints both for comparison. Porting a kernel means editing the Metal version by hand.
 
 CUDA kernel example:
 
