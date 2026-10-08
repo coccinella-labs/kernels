@@ -136,7 +136,8 @@ class MetalCompute {
     }
     
     // Benchmark utility with detailed metrics
-    func benchmark(name: String, iterations: Int = 100, closure: () -> Void) {
+    @discardableResult
+    func benchmark(name: String, iterations: Int = 100, closure: () -> Void) -> Double {
         let start = Date()
         for _ in 0..<iterations {
             closure()
@@ -144,6 +145,7 @@ class MetalCompute {
         let elapsed = Date().timeIntervalSince(start)
         let msPerIter = (elapsed / Double(iterations)) * 1000
         print("  \(name): \(String(format: "%.3f", msPerIter)) ms/iter (total: \(String(format: "%.2f", elapsed * 1000)) ms)")
+        return msPerIter
     }
     
     // Advanced profiling with GPU metrics
@@ -552,14 +554,28 @@ class MetalCompute {
     }
 }
 
+
+// Helpers for the summary banner, which reports this run's measurements.
+func f1(_ v: Double) -> String { String(format: "%.1f", v) }
+func f3(_ v: Double) -> String { String(format: "%.3f", v) }
+
 // MARK: - Demo checks
 //
 // The demo used to print "Passed" unconditionally, which asserted a result it
 // never checked. Each check below compares against a value computed in Swift.
+//
+// Failures are counted so the process can exit non-zero. Printing FAILED while
+// still exiting 0 and still printing the success banner is worse than no check
+// at all, because a CI job reading the exit code would call it green.
+var checkFailures: [String] = []
+
 func check(_ name: String, _ got: [Float], _ want: [Float], _ tol: Float = 0.0001) {
     let ok = got.count == want.count && zip(got, want).allSatisfy { abs($0 - $1) < tol }
     print("    \(ok ? "Passed" : "FAILED") \(name)")
-    if !ok { print("      got \(got) want \(want)") }
+    if !ok {
+        print("      got \(got) want \(want)")
+        checkFailures.append(name)
+    }
 }
 
 // MARK: - Main
@@ -675,12 +691,12 @@ let benchB = (0..<benchmarkSize).map { Float($0 * 2) }
 print("Array size: \(benchmarkSize) elements\n")
 
 // GPU Benchmark
-compute.benchmark(name: "GPU Array Addition", iterations: 100) {
+let gpuAddMs = compute.benchmark(name: "GPU Array Addition", iterations: 100) {
     _ = compute.arrayAddition(a: benchA, b: benchB)
 }
 
 // CPU Benchmark
-compute.benchmark(name: "CPU Array Addition", iterations: 100) {
+let cpuAddMs = compute.benchmark(name: "CPU Array Addition", iterations: 100) {
     _ = zip(benchA, benchB).map { $0 + $1 }
 }
 
@@ -693,7 +709,7 @@ let benchMat2 = (0..<(benchMatSize*benchMatSize)).map { Float($0 * 2) }
 
 print("Matrix multiply (64×64):\n")
 
-compute.benchmark(name: "GPU Matrix Multiply", iterations: 10) {
+let gpuMatmulMs = compute.benchmark(name: "GPU Matrix Multiply", iterations: 10) {
     _ = compute.matrixMultiply(a: benchMat1, b: benchMat2, size: benchMatSize)
 }
 
@@ -785,8 +801,13 @@ print("   Expected: \(batchSize * m * n) elements")
 check("batched matmul size", [Float(batchResult.count)], [Float(batchSize * m * n)])
 
 // ============= SUMMARY =============
-print("╔════════════════════════════════════════════════════════════╗")
-print("║         All Advanced Features Executed Successfully        ║")
+if checkFailures.isEmpty {
+    print("╔════════════════════════════════════════════════════════════╗")
+    print(boxLine("         All Advanced Features Executed Successfully"))
+} else {
+    print("╔════════════════════════════════════════════════════════════╗")
+    print(boxLine("         \(checkFailures.count) CHECK(S) FAILED, SEE ABOVE"))
+}
 print("║                                                            ║")
 print("║ What you now have:                                         ║")
 print("║  Timing Metrics (spread, not utilization)                 ║")
@@ -797,11 +818,33 @@ print("║  Efficient Convolution (depthwise separable)               ║")
 print("║  Activation Functions for Transformers                     ║")
 print("║  Batched Matrix Operations                                 ║")
 print("║                                                            ║")
-print("║ Timing on this machine, from the runs above:               ║")
-print("║ • Array add 10k: GPU 0.313 ms vs CPU 2.481 ms, about 8x    ║")
-print("║ • 64x64 matmul: GPU 0.394 ms vs CPU 32.766 ms, about 83x  ║")
-print("║ • Threadgroup sizes measured; no clear optimum here        ║")
+// These are wall-clock measurements taken during this run, not fixed text.
+// The banner used to hardcode "about 8x" and "about 83x" while the same run
+// printed CPU times 10x faster than those numbers implied.
+let addRatio = cpuAddMs / gpuAddMs
+let matmulRatio = cpuElapsed / gpuMatmulMs
+// The banner is a fixed-width box; measured values change length, so each line
+// is padded to the same width rather than assumed to fit.
+func boxLine(_ text: String) -> String {
+    // Matches the literal banner lines, which are 62 characters in total.
+    let width = 58
+    let trimmed = text.count > width ? String(text.prefix(width - 1)) + "\u{2026}" : text
+    let pad = max(0, width - trimmed.count)
+    return "\u{2551} " + trimmed + String(repeating: " ", count: pad) + " \u{2551}"
+}
+
+print(boxLine("Timing on this machine, from the runs above:"))
+print(boxLine("\u{2022} Array add \(benchmarkSize): GPU \(f3(gpuAddMs)) ms, CPU \(f3(cpuAddMs)) ms (CPU \(f1(addRatio))x)"))
+print(boxLine("\u{2022} 64x64 matmul: GPU \(f3(gpuMatmulMs)) ms, CPU \(f3(cpuElapsed)) ms (CPU \(f1(matmulRatio))x)"))
+print(boxLine("\u{2022} Wall clock, not GPU time. Utilization not measured."))
+print(boxLine("\u{2022} Threadgroup sizes measured; no clear optimum here"))
 print("║                                                            ║")
 print("║ Next: add an iOS target, add CoreML integration, or        ║")
 print("║ profile in Xcode's Metal Debugger for detailed analysis    ║")
 print("╚════════════════════════════════════════════════════════════╝")
+
+// Non-zero exit so CI and scripts can trust the result.
+if !checkFailures.isEmpty {
+    FileHandle.standardError.write(Data("\nFAILED checks: \(checkFailures.joined(separator: ", "))\n".utf8))
+    exit(1)
+}

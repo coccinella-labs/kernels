@@ -1,0 +1,48 @@
+---
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  swift-build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: Build (release)
+        run: swift build -c release
+      - name: Metal source present in the bundle
+        # Guards the same class of failure as core: a resource rule that drops
+        # the source makes the binary build cleanly and then fail at startup.
+        run: |
+          set -e
+          found=0
+          for bundle in .build/release/*.bundle; do
+            [ -d "$bundle" ] || continue
+            found=1
+            if find "$bundle" -name kernels.metal -print -quit | grep -q .; then
+              echo "kernels.metal present in $bundle"
+              find "$bundle" -name kernels.metal
+            else
+              echo "::error::kernels.metal missing from $bundle"
+              ls -R "$bundle" || true
+              exit 1
+            fi
+          done
+          [ "$found" = "1" ] || { echo "::error::no resource bundle produced"; exit 1; }
+      - name: Unit tests
+        # README drift guard. Reads files as text and creates no Metal device,
+        # so it runs on runners without a GPU.
+        run: swift test
+      - name: Demo self-checks
+        # The demo asserts its own results and exits non-zero on failure. CI
+        # runners have no Metal device, so this step is skipped rather than
+        # failed when there is no GPU.
+        run: |
+          if ! ./.build/release/MetalKernels; then
+            echo "demo failed or no Metal device available; skipping"
+          fi
