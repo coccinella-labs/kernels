@@ -64,7 +64,20 @@ Add new Metal compute kernels for:
 
 ### 4. Testing
 
-* Add comprehensive test suite
+There is a test suite. Run it with:
+
+```bash
+swift test
+```
+
+It covers the pieces that were previously unverified: the kernel inventory, the
+shader-only kernel table in the README, and the CUDA and Metal code samples. It
+does not cover `main.swift`, so a green run does not mean the demo's output is
+correct. The demo itself checks its own results and exits non-zero on failure,
+which CI runs separately on runners that have a Metal device.
+
+Still wanted:
+
 * Benchmark against CPU and other GPU libraries
 * Test on multiple Mac/iPad models
 * Verify edge cases (NaN, infinity, zero)
