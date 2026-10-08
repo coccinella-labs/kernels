@@ -469,6 +469,55 @@ class MetalCompute {
         let resultPtr = resultBuffer.contents().assumingMemoryBound(to: Float.self)
         return Array(UnsafeBufferPointer(start: resultPtr, count: count))
     }
+    
+    func scaleArray(_ a: [Float], scale: Float) -> [Float] {
+        let count = a.count
+        let bufferSize = count * MemoryLayout<Float>.size
+        
+        // The scalar is copied into its own buffer, because makeBuffer copies
+        // and therefore cannot dangle the way a transient bytes pointer can.
+        var scaleValue = scale
+        guard let aBuffer = device.makeBuffer(bytes: a, length: bufferSize),
+              let resultBuffer = device.makeBuffer(length: bufferSize),
+              let scaleBuffer = device.makeBuffer(bytes: &scaleValue, length: MemoryLayout<Float>.size) else {
+            fatalError("Could not create buffers")
+        }
+        
+        let _ = dispatch(kernelName: "scale_array", buffers: [aBuffer, resultBuffer, scaleBuffer], threadCount: count)
+        
+        let resultPtr = resultBuffer.contents().assumingMemoryBound(to: Float.self)
+        return Array(UnsafeBufferPointer(start: resultPtr, count: count))
+    }
+    
+    func absoluteValue(_ a: [Float]) -> [Float] {
+        let count = a.count
+        let bufferSize = count * MemoryLayout<Float>.size
+        
+        guard let aBuffer = device.makeBuffer(bytes: a, length: bufferSize),
+              let resultBuffer = device.makeBuffer(length: bufferSize) else {
+            fatalError("Could not create buffers")
+        }
+        
+        let _ = dispatch(kernelName: "absolute_value", buffers: [aBuffer, resultBuffer], threadCount: count)
+        
+        let resultPtr = resultBuffer.contents().assumingMemoryBound(to: Float.self)
+        return Array(UnsafeBufferPointer(start: resultPtr, count: count))
+    }
+    
+    func relu(_ a: [Float]) -> [Float] {
+        let count = a.count
+        let bufferSize = count * MemoryLayout<Float>.size
+        
+        guard let aBuffer = device.makeBuffer(bytes: a, length: bufferSize),
+              let resultBuffer = device.makeBuffer(length: bufferSize) else {
+            fatalError("Could not create buffers")
+        }
+        
+        let _ = dispatch(kernelName: "relu", buffers: [aBuffer, resultBuffer], threadCount: count)
+        
+        let resultPtr = resultBuffer.contents().assumingMemoryBound(to: Float.self)
+        return Array(UnsafeBufferPointer(start: resultPtr, count: count))
+    }
 }
 
 // MARK: - Main

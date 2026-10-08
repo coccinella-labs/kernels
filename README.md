@@ -4,9 +4,11 @@
 
 **Metal Compute Kernels for Swift**
 
-| Severity | Package | Platform | Link |
-|---|---|---|---|
-| N/A | metal-compute-kernels | Apple Silicon (macOS / iOS) | - |
+| Package | Target | Platform |
+|---|---|---|
+| MetalKernels | executable | macOS 12+ |
+
+`Package.swift` declares the package and target as `MetalKernels` and the minimum platform as macOS 12. There is no iOS target; the only iOS mention in the demo is a future item in its closing banner.
 
 A Swift-based framework for GPU compute on Apple Silicon using Apple’s Metal API.
 
