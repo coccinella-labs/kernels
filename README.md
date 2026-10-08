@@ -16,6 +16,10 @@ Metal Compute Kernels enables writing high-performance GPU kernels directly in S
 
 The CUDA examples below are worked translations, not an automated translator. `Sources/MetalKernels/kernels.metal` ships 23 Metal kernels, and `Sources/MetalKernels/main.swift` runs them alongside the equivalent CUDA source and prints both for comparison. Porting a kernel means editing the Metal version by hand.
 
+Not every kernel has a Swift wrapper. `tiled_matrix_multiply` is shader-only, and `vector_add` is used for the side-by-side comparison rather than being called. The demo asserts its results against values computed in Swift and prints `FAILED` with the mismatch when one occurs, rather than assuming success.
+
+Two wrappers are limited to a single 32-element threadgroup, because they use shared memory without a cross-group pass. `exclusiveScan` requires 32 elements or fewer, and `sumReduction` requires a length that is a multiple of 32 and returns one partial sum per group.
+
 CUDA kernel example:
 
 ```cpp

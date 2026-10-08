@@ -196,6 +196,10 @@ class MetalCompute {
     }
     
     // Threadgroup: Sum Reduction
+    // Reduces within a single 32-element threadgroup and returns one partial
+    // sum per group. `count` must be a multiple of the 32 threadgroup size,
+    // otherwise the final partial group never writes its slot and the result
+    // is uninitialized. There is no cross-group pass.
     func sumReduction(input: [Float]) -> [Float] {
         let count = input.count
         let bufferSize = count * MemoryLayout<Float>.size
@@ -299,6 +303,9 @@ class MetalCompute {
     }
     
     // Advanced: Exclusive Scan
+    // Prefix sum over a single 32-element threadgroup. `count` must not exceed
+    // 32, because each thread reads input[id - 1] into shared memory and
+    // shared state does not carry across threadgroups.
     func exclusiveScan(input: [Float]) -> [Float] {
         let count = input.count
         let bufferSize = count * MemoryLayout<Float>.size
@@ -594,6 +601,8 @@ print("CUDA __shared__ memory → Metal threadgroup memory")
 print("Pattern: Parallel reduction with threadgroup_barrier")
 let largeArray = (0..<1024).map { Float($0) }
 print("Input array size: 1024 elements")
+print("Note: sumReduction reduces within one 32-element threadgroup per slot,")
+print("so the input length must be a multiple of 32. 1024 qualifies.")
 let reduction = compute.sumReduction(input: largeArray)
 let expected = largeArray.reduce(0, +)
 print("GPU Reduction result: \(reduction.reduce(0, +))")
@@ -643,6 +652,7 @@ print("A × B = \(matResult) \n")
 print(" SECTION 6: Advanced GPU Patterns\n")
 
 print("6.1 Exclusive Scan (Prefix Sum)")
+print("Note: exclusiveScan covers one 32-element threadgroup, so 5 elements qualify.")
 let scanInput: [Float] = [1, 2, 3, 4, 5]
 print("Input: \(scanInput)")
 let scanResult = compute.exclusiveScan(input: scanInput)
