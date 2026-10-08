@@ -161,16 +161,20 @@ class MetalCompute {
         let minTime = times.min() ?? 0
         let maxTime = times.max() ?? 0
         
-        // Estimate GPU utilization based on variance (lower variance = more consistent = better utilization)
+        // Coefficient of variation, the spread of iteration times. This is a
+        // measure of timing consistency, not GPU utilization. There is no
+        // counter here, so utilization cannot be measured on the CPU side.
         let variance = times.map { pow($0 - avgTime, 2) }.reduce(0, +) / Double(times.count)
         let stdDev = sqrt(variance)
-        let gpuUtilization = max(0, 1.0 - (stdDev / avgTime)) * 100.0
+        let coefficientOfVariation = avgTime > 0 ? (stdDev / avgTime) * 100.0 : 0.0
         
         print(" \(name)")
         print("   Avg: \(String(format: "%.3f", avgTime)) ms | Min: \(String(format: "%.3f", minTime)) ms | Max: \(String(format: "%.3f", maxTime)) ms")
-        print("   GPU Utilization (est): \(String(format: "%.1f", gpuUtilization))%")
+        print("   Timing spread (std dev / avg): \(String(format: "%.1f", coefficientOfVariation))%")
+        print("   Utilization is not measured here. Use Xcode's Metal Debugger or")
+        print("   MTLCounter for that.")
         
-        return (avgTime, minTime, maxTime, gpuUtilization)
+        return (avgTime, minTime, maxTime, coefficientOfVariation)
     }
     
     // CUDA Translation: Fused Multiply-Add
@@ -736,13 +740,13 @@ print("   Output size: \(convOutput.count) values, expected \(3*3*3) for a 3x3 r
 check("depthwise output size", [Float(convOutput.count)], [27])
 
 // ============= SECTION 9: PROFILING & GPU METRICS =============
-print(" SECTION 9: GPU Profiling & Advanced Metrics\n")
+print(" SECTION 9: Timing Metrics\n")
 
 let profileSize = 5000
 let profileA = (0..<profileSize).map { Float($0) }
 let profileB = (0..<profileSize).map { Float($0 * 2) }
 
-print("Detailed GPU Metrics (10 iterations):\n")
+print("Timing distribution (10 iterations):\n")
 
 let metrics = compute.benchmarkWithMetrics(name: "Array Addition (profiled)", iterations: 10) {
     _ = compute.arrayAddition(a: profileA, b: profileB)
@@ -775,7 +779,7 @@ print("╔═══════════════════════�
 print("║         All Advanced Features Executed Successfully        ║")
 print("║                                                            ║")
 print("║ What you now have:                                         ║")
-print("║  GPU Profiling & Metrics (utilization estimation)          ║")
+print("║  Timing Metrics (spread, not utilization)                 ║")
 print("║  Threadgroup Tuning (32, 64, 128, 256)                     ║")
 print("║  Batch Operations (multiple items per thread)              ║")
 print("║  Neural Network Layers (sigmoid, tanh, GELU)               ║")
