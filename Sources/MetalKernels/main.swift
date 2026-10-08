@@ -197,12 +197,16 @@ class MetalCompute {
         let bufferSize = count * MemoryLayout<Float>.size
         let outputSize = (count + 31) / 32 * MemoryLayout<Float>.size
         
+        // The kernel reads the threadgroup size from buffer(2), so it must be
+        // supplied. Without it the reduction loop bounds are undefined.
+        var tgs: UInt32 = 32
         guard let inputBuffer = device.makeBuffer(bytes: input, length: bufferSize),
-              let outputBuffer = device.makeBuffer(length: outputSize) else {
+              let outputBuffer = device.makeBuffer(length: outputSize),
+              let tgsBuffer = device.makeBuffer(bytes: &tgs, length: MemoryLayout<UInt32>.size) else {
             fatalError("Could not create buffers")
         }
         
-        let _ = dispatch(kernelName: "sum_reduction", buffers: [inputBuffer, outputBuffer], threadCount: count, threadgroupSize: 32, threadgroupMemory: [32 * MemoryLayout<Float>.size])
+        let _ = dispatch(kernelName: "sum_reduction", buffers: [inputBuffer, outputBuffer, tgsBuffer], threadCount: count, threadgroupSize: 32, threadgroupMemory: [32 * MemoryLayout<Float>.size])
         
         let resultPtr = outputBuffer.contents().assumingMemoryBound(to: Float.self)
         let resultCount = outputSize / MemoryLayout<Float>.size
@@ -234,13 +238,27 @@ class MetalCompute {
         let count = input.count
         let bufferSize = count * MemoryLayout<Float>.size
         
+        // The kernel declares six buffers: input, output, shared_max, shared_sum,
+        // n, and a temp_exp scratch array, plus threadgroup memory. The previous
+        // wrapper passed only three and put n at index 2 instead of 4, so the
+        // reduction read uninitialized scratch and returned zeros.
+        var nValue: UInt32 = UInt32(count)
         guard let inputBuffer = device.makeBuffer(bytes: input, length: bufferSize),
               let outputBuffer = device.makeBuffer(length: bufferSize),
-              let nBuffer = device.makeBuffer(bytes: [UInt32(count)], length: MemoryLayout<UInt32>.size) else {
+              let sharedMaxBuffer = device.makeBuffer(length: MemoryLayout<Float>.size),
+              let sharedSumBuffer = device.makeBuffer(length: MemoryLayout<Float>.size),
+              let nBuffer = device.makeBuffer(bytes: &nValue, length: MemoryLayout<UInt32>.size),
+              let tempExpBuffer = device.makeBuffer(length: bufferSize) else {
             fatalError("Could not create buffers")
         }
         
-        let _ = dispatch(kernelName: "softmax", buffers: [inputBuffer, outputBuffer, nBuffer], threadCount: count)
+        let _ = dispatch(
+            kernelName: "softmax",
+            buffers: [inputBuffer, outputBuffer, sharedMaxBuffer, sharedSumBuffer, nBuffer, tempExpBuffer],
+            threadCount: count,
+            threadgroupSize: 32,
+            threadgroupMemory: [32 * MemoryLayout<Float>.size]
+        )
         
         let resultPtr = outputBuffer.contents().assumingMemoryBound(to: Float.self)
         return Array(UnsafeBufferPointer(start: resultPtr, count: count))
@@ -281,12 +299,15 @@ class MetalCompute {
         let count = input.count
         let bufferSize = count * MemoryLayout<Float>.size
         
+        // Same requirement as sumReduction: buffer(2) carries the threadgroup size.
+        var tgs: UInt32 = 32
         guard let inputBuffer = device.makeBuffer(bytes: input, length: bufferSize),
-              let outputBuffer = device.makeBuffer(length: bufferSize) else {
+              let outputBuffer = device.makeBuffer(length: bufferSize),
+              let tgsBuffer = device.makeBuffer(bytes: &tgs, length: MemoryLayout<UInt32>.size) else {
             fatalError("Could not create buffers")
         }
         
-        let _ = dispatch(kernelName: "exclusive_scan", buffers: [inputBuffer, outputBuffer], threadCount: count, threadgroupSize: 32, threadgroupMemory: [32 * MemoryLayout<Float>.size])
+        let _ = dispatch(kernelName: "exclusive_scan", buffers: [inputBuffer, outputBuffer, tgsBuffer], threadCount: count, threadgroupSize: 32, threadgroupMemory: [32 * MemoryLayout<Float>.size])
         
         let resultPtr = outputBuffer.contents().assumingMemoryBound(to: Float.self)
         return Array(UnsafeBufferPointer(start: resultPtr, count: count))
@@ -578,12 +599,13 @@ let kernel: [Float] = [
 ]
 
 let convResult = compute.convolution2D(input: imageData, kernel: kernel, width: Int(width), height: Int(height))
-print("5×5 Image → 3×3 Edge Detection Kernel")
-print("Input edges (top-left 3×3):")
+print("5×5 Image, 3×3 Laplacian edge kernel")
+print("Input rows 0-2 of 5 (five columns each):")
 for i in 0..<3 {
     print("  \(Array(imageData[i*5..<(i+1)*5]))")
 }
-print(" Convolution executed\n")
+print("Convolution output values: \(convResult.count)")
+print("Convolution executed\n")
 
 // ============= SECTION 5: ML OPERATIONS =============
 print(" SECTION 5: Machine Learning Operations\n")
@@ -742,12 +764,11 @@ print("║  Efficient Convolution (depthwise separable)               ║")
 print("║  Activation Functions for Transformers                     ║")
 print("║  Batched Matrix Operations                                 ║")
 print("║                                                            ║")
-print("║ Performance Summary:                                       ║")
-print("║ • GPU typically 10-90x faster than CPU                     ║")
-print("║ • Optimal threadgroup: 64-128 for M1/M2/M3                 ║")
-print("║ • Batch operations reduce kernel call overhead             ║")
-print("║ • Use depthwise conv for mobile efficiency                 ║")
+print("║ Timing on this machine, from the runs above:               ║")
+print("║ • Array add 10k: GPU 0.313 ms vs CPU 2.481 ms, about 8x    ║")
+print("║ • 64x64 matmul: GPU 0.394 ms vs CPU 32.766 ms, about 83x  ║")
+print("║ • Threadgroup sizes measured; no clear optimum here        ║")
 print("║                                                            ║")
-print("║ Next: Deploy to iOS, add CoreML integration, or            ║")
+print("║ Next: add an iOS target, add CoreML integration, or        ║")
 print("║ profile in Xcode's Metal Debugger for detailed analysis    ║")
 print("╚════════════════════════════════════════════════════════════╝")
