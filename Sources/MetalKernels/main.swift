@@ -541,6 +541,16 @@ class MetalCompute {
     }
 }
 
+// MARK: - Demo checks
+//
+// The demo used to print "Passed" unconditionally, which asserted a result it
+// never checked. Each check below compares against a value computed in Swift.
+func check(_ name: String, _ got: [Float], _ want: [Float], _ tol: Float = 0.0001) {
+    let ok = got.count == want.count && zip(got, want).allSatisfy { abs($0 - $1) < tol }
+    print("    \(ok ? "Passed" : "FAILED") \(name)")
+    if !ok { print("      got \(got) want \(want)") }
+}
+
 // MARK: - Main
 let compute = MetalCompute()
 
@@ -636,8 +646,10 @@ print("Exclusive Scan: \(scanResult) ")
 print("(0, 1, 3, 6, 10 - cumulative sum starting at 0)\n")
 
 print("6.2 Tiled Matrix Multiply")
-print("Optimized with threadgroup memory tiling for larger matrices")
-print(" Kernel available\n")
+print("The tiled_matrix_multiply kernel exists in kernels.metal but has no Swift")
+print("wrapper, so it is not exercised here.")
+let tiledPresent = false
+print("   Exercised: \(tiledPresent)\n")
 
 // ============= SECTION 7: BENCHMARKING =============
 print(" SECTION 7: CPU vs GPU Benchmark\n")
@@ -687,7 +699,8 @@ let sigmoidInput: [Float] = [-2.0, -1.0, 0.0, 1.0, 2.0]
 let sigmoidOutput = compute.sigmoid(sigmoidInput)
 print("   Input: \(sigmoidInput)")
 print("   Output: \(sigmoidOutput.map { String(format: "%.4f", $0) })")
-print("    Passed\n")
+let sigmoidWant: [Float] = sigmoidInput.map { 1 / (1 + exp(-$0)) }
+check("sigmoid", sigmoidOutput, sigmoidWant)
 
 // Tanh
 print(" Tanh Activation")
@@ -695,7 +708,8 @@ let tanhInput: [Float] = [-1.0, -0.5, 0.0, 0.5, 1.0]
 let tanhOutput = compute.tanh(tanhInput)
 print("   Input: \(tanhInput)")
 print("   Output: \(tanhOutput.map { String(format: "%.4f", $0) })")
-print("    Passed\n")
+let tanhWant = tanhInput.map { Foundation.tanh($0) }
+check("tanh", tanhOutput, tanhWant)
 
 // GELU
 print(" GELU Activation (Transformer layers)")
@@ -703,7 +717,12 @@ let geluInput: [Float] = [-1.0, -0.5, 0.0, 0.5, 1.0]
 let geluOutput = compute.gelu(geluInput)
 print("   Input: \(geluInput)")
 print("   Output: \(geluOutput.map { String(format: "%.4f", $0) })")
-print("    Passed\n")
+let geluWant = geluInput.map { x -> Float in
+    let c = Float((2.0 / Double.pi).squareRoot())
+    return 0.5 * x * (1 + Foundation.tanh(c * (x + 0.044715 * x * x * x)))
+}
+// The constant is sqrt(2 / pi), matching the kernel's sqrt(2.0 / M_PI_F).
+check("gelu", geluOutput, geluWant)
 
 // Depthwise Separable Convolution
 print(" Depthwise Separable Convolution (Mobile efficient)")
@@ -713,8 +732,8 @@ let convBias: [Float] = [0.1, 0.2, 0.3]
 let convOutput = compute.depthwiseConv2D(input: convInput, weights: convWeights, bias: convBias, channels: 3, kernelSize: 3, inputSize: 5)
 print("   Input: 5×5×3 image")
 print("   Kernel: 3×3×3 depthwise")
-print("   Output size: \(convOutput.count) values")
-print("    Passed\n")
+print("   Output size: \(convOutput.count) values, expected \(3*3*3) for a 3x3 result on 3 channels")
+check("depthwise output size", [Float(convOutput.count)], [27])
 
 // ============= SECTION 9: PROFILING & GPU METRICS =============
 print(" SECTION 9: GPU Profiling & Advanced Metrics\n")
@@ -749,7 +768,7 @@ print("Batched Matrix Multiply: \(batchSize) × (\(m)×\(k) @ \(k)×\(n))")
 let batchResult = compute.batchedMatmul(a: batchA, b: batchB, batchSize: batchSize, m: m, k: k, n: n)
 print("   Result size: \(batchResult.count) elements")
 print("   Expected: \(batchSize * m * n) elements")
-print("    Passed\n")
+check("batched matmul size", [Float(batchResult.count)], [Float(batchSize * m * n)])
 
 // ============= SUMMARY =============
 print("╔════════════════════════════════════════════════════════════╗")
