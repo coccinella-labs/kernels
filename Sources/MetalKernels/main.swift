@@ -147,7 +147,7 @@ class MetalCompute {
     }
     
     // Advanced profiling with GPU metrics
-    func benchmarkWithMetrics(name: String, iterations: Int = 10, closure: () -> Void) -> (avgTime: Double, minTime: Double, maxTime: Double, gpuUtilization: Double) {
+    func benchmarkWithMetrics(name: String, iterations: Int = 10, closure: () -> Void) -> (avgTime: Double, minTime: Double, maxTime: Double, spreadPercent: Double) {
         var times: [Double] = []
         
         for _ in 0..<iterations {

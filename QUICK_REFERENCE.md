@@ -1,5 +1,10 @@
 # Quick Reference: Metal Compute Kernels
 
+Signatures for the `MetalCompute` class defined in `Sources/MetalKernels/main.swift`.
+This is an executable target, not a library, so `import MetalKernels` does not work
+from another package. The signatures below are for reading the demo source or for
+copying these methods into your own project.
+
 ## Cheat Sheet for GPU Computing in Swift
 
 ### 1. Initialize GPU
@@ -86,17 +91,19 @@ compute.benchmark(name: "My Operation", iterations: 100) {
     _ = compute.arrayAddition(a: a, b: b)
 }
 
-// Detailed metrics (GPU utilization %)
+// Detailed timing (returns avg, min, max, and timing spread)
+// The fourth value is std dev / avg, not GPU utilization.
 let metrics = compute.benchmarkWithMetrics(
-    name: "GPU Operation",
+    name: "Array Addition",
     iterations: 10
 ) {
-    _ = compute.myKernel(input: data)
+    _ = compute.arrayAddition(a: a, b: b)
 }
 
 // Tune threadgroup sizes for your hardware
 compute.benchmarkThreadgroupSizes(arraySize: 10000)
-// Tests 32, 64, 128, 256 threads
+// Tests 32, 64, 128, 256 threads. The input length must be a
+// multiple of 32 for sumReduction; exclusiveScan takes 32 or fewer.
 ```
 
 ### 4. CUDA → Metal Mapping
@@ -236,28 +243,28 @@ let idx = b * (H*W*C) + y * (W*C) + x * C + channel
 
 ### 9. Optimization Tips
 
-1. **Batch operations** - Reduce kernel launch overhead by 50-70%
+1. **Batch operations** - Reduces kernel launch overhead; the demo measures
+   32x32 against 64x64 but does not quantify the launch saving
 2. **Coalesce memory** - Access sequential indices for cache hits
 3. **Minimize divergence** - Threads should follow same code path
 4. **Use shared memory** - Faster than global for threadgroup communication
-5. **Profile early** - Use `benchmarkWithMetrics` to identify bottlenecks
+5. **Profile early** - Use `benchmarkWithMetrics` for timing spread, and
+   Xcode's Metal Debugger for utilization
 
 ### 10. Error Handling
 
 ```swift
-// Check for GPU availability
-guard let device = MTLCreateSystemDefaultDevice() else {
+// Check for GPU availability. MetalCompute does this itself and calls
+// fatalError if no device is present, so you do not need to repeat it.
+guard MTLCreateSystemDefaultDevice() != nil else {
     print("Metal not available")
     return
 }
 
-// Wrap kernel calls for safety
-do {
-    let result = compute.myKernel(input: data)
-    // Use result
-} catch {
-    print("GPU computation failed: \(error)")
-}
+// The wrapper methods do not throw. They call fatalError on buffer or
+// pipeline allocation failure, so there is no error value to catch.
+// If you want recoverable failures, copy the dispatch code and replace
+// the fatalError calls with your own handling.
 
 // Validate results
 let result = compute.arrayAddition(a: a, b: b)
@@ -270,12 +277,12 @@ assert(zip(result, expected).allSatisfy { abs($0 - $1) < 0.0001 },
 
 - [ ] Tested on M1/M2/M3
 - [ ] Benchmarked GPU vs CPU
-- [ ] GPU utilization > 80%
+- [ ] Utilization checked in Metal Debugger (not measurable from this package)
 - [ ] No NaN/infinity in output
 - [ ] Memory properly freed
 - [ ] Works in release build
 - [ ] Profiled in Metal Debugger
-- [ ] Works on target device (Mac/iPhone)
+- [ ] Works on target device (Mac only; there is no iOS target)
 
 ### 12. Resources
 
