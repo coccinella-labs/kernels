@@ -220,7 +220,10 @@ All contributions are under the MIT License.
 
 * GitHub Issues: for bugs and features
 * GitHub Discussions: for questions and ideas
-* Email: [harpertoken@icloud.com](mailto:harpertoken@icloud.com)
+* Email: [coccinella.labs@icloud.com](mailto:coccinella.labs@icloud.com)
+
+Prefer the issues for bugs and features. The address above replaced a
+project-specific one that belonged to a different repository.
 
 ---
 
