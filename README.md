@@ -40,4 +40,4 @@ kernel void vector_add(
 
 Key differences include the replacement of `blockIdx`/`threadIdx` with `thread_position_in_grid`, explicit `device` address space qualifiers with buffer bindings, and dispatch-controlled grid sizing instead of in-kernel bounds checks.
 
-[`Link & Swift GUIDANCE`](/QUICK_REFERENCE.md)
+[Swift API quick reference](QUICK_REFERENCE.md)
