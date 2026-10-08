@@ -543,7 +543,9 @@ print(" SECTION 2: CUDA → Metal Translation\n")
 
 print("CUDA equivalent: __global__ void vector_add(float *a, float *b, float *c)")
 print("Metal equivalent: kernel void vector_add(...)")
-print("Result (uses vector_add kernel): \(result) \n")
+print("Note: vector_add is shown for comparison only. The result above comes")
+print("from add_arrays via arrayAddition, which is the same elementwise add.")
+print("A + B: \(result) \n")
 
 print("CUDA: result[i] = a[i] * b[i] + c[i]")
 let c: [Float] = [1.0, 1.0, 1.0, 1.0, 1.0]
