@@ -190,6 +190,36 @@ final class ReadmeDriftTests: XCTestCase {
         }
     }
 
+    /// The LICENSE holder must be the org, not a project or contributor name.
+    /// "Metal Compute Kernels Contributors" was the holder here, which is a
+    /// project name, not a legal entity.
+    func testLicenseHolderIsTheOrganisation() {
+        let license = source("LICENSE")
+        XCTAssertTrue(license.contains("MIT License"), "LICENSE is not MIT")
+
+        let copyrightLine = license
+            .split(separator: "\n")
+            .first { $0.contains("Copyright") }?
+            .trimmingCharacters(in: .whitespaces) ?? ""
+
+        XCTAssertFalse(
+            copyrightLine.isEmpty,
+            "LICENSE has no copyright line"
+        )
+        XCTAssertTrue(
+            copyrightLine.contains("Coccinella Labs"),
+            "LICENSE copyright holder is not Coccinella Labs: \(copyrightLine)"
+        )
+        XCTAssertFalse(
+            copyrightLine.contains("bniladridas"),
+            "LICENSE names an individual instead of the org: \(copyrightLine)"
+        )
+        XCTAssertFalse(
+            copyrightLine.contains("Contributors"),
+            "LICENSE uses 'Contributors' as the holder: \(copyrightLine)"
+        )
+    }
+
     /// Platform claims must match Package.swift.
     func testPlatformClaimMatchesPackageManifest() {
         let manifest = source("Package.swift")
